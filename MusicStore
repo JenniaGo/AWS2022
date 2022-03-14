@@ -1,0 +1,111 @@
+#!/bin/bash
+
+#Check_record_qauntity $record_name
+Check_record_qauntity ()
+{
+q=0
+q=$( cat StoreFile.txt | grep $1 | wc -l )
+if [ $q -ge 1 ]
+then
+	return $q
+else
+	return 0
+fi
+}
+
+#Usage: Remove $record_name $file_name
+Remove ()
+{
+record_name=$1
+file_name=$2
+sed -i "/$record_name/d" $file_name
+echo "THE FILE "$record_name" WAS DELETED SUCCESSFULLY FROM storefile.txt" $(date) >> logfile.txt
+}
+
+Add ()
+{
+read -p "Enter Record Name: " name
+read -p "Enter Qauntity: " pcs
+echo $name:$pcs >> StoreFile.txt 
+echo "THE RECORD "$record_name" WAS DELETED SUCCESSFULLY FROM storefile.txt" $(date) >> logfile.txt
+}
+
+#Usage: Check_Qauntity $record_name
+Check_Qauntity ()
+{
+q=$( cat StoreFile.txt | grep $1 | cut -d ':' -f 2 )
+if [ $q -ge 1 ]
+then
+	echo $q
+else
+	echo 0
+fi
+
+}
+
+#Usage: Update_Qauntity $record_name $record_qauntity
+Update_Qauntity ()
+{
+name=$1
+old_amount=$((Check_Qauntity $name))
+pcs=1
+let amount=$old_amount-$pcs
+echo $amount
+sed -i "s/"$name:$old_amount"/"$name:$amount"/g" StoreFile.txt
+echo "THE RECORD "$record_name" WAS UPDATED SUCCESSFULLY FROM storefile.txt" $(date) >> logfile.txt
+}
+
+#PrintAllQ ()
+#{
+#
+#}
+
+#PrintSorted ()
+#{
+#
+#}
+
+Menu ()
+{
+PS3="Hello, welcome to our Music store :) would you like to start ? 1-Add 5-UpdateQauntity 8-Exit "
+select record in Add Remove Search UpdateName UpdateQuantity PrintAllQauntity PrintSorted Cancel
+do
+echo $record Choice number is: $REPLY
+case $record in
+	Add)
+	echo "You chosen Add"
+	Add
+	;;
+	Remove)
+	echo "You chosen Remove"
+	;;
+	Search)
+	echo "You chosen Search"
+	read -p "Enter name of record: " rname
+	Search $rname
+	;;
+	UpdateName)
+	echo "You chosen UpdateName"
+	;;
+	UpdateQuantity)
+	echo "You chosen UpdateQuantity"
+	read -p "Enter Record Name: " record_name
+	Update_Qauntity $record_name
+	;;
+	PrintAllQauntity)
+	echo "You chosen PrintAll"
+	;;
+	PrintSorted)
+	echo "You chosen PrintSorted"
+	;;
+	Cancel)
+	break
+	;;
+	*)
+	echo "Not a valid option selected, try again or press 8 to exit"
+	;;
+esac
+done
+}
+
+Menu
