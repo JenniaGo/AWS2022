@@ -1,0 +1,195 @@
+#!/bin/bash
+
+check_record_duplicates ()
+{
+q1=0
+q1=$( cat store_file.txt | grep $1 | wc -l )
+if [ $q1 -ge 1 ]
+then
+	echo $q1
+else
+	echo 0
+fi
+}
+
+PrintAllSorted ()
+{
+cat store_file.txt | cut -d ':' -f 1,2 | sort -f
+}
+
+Print_amount ()
+{
+a=$( cat store_file.txt | cut -d ':' -f 2 | paste -sd+ | bc )
+if [[ $a -ge 1 ]]
+then
+	echo $a
+else
+	echo "The Database is empty, sorry can't help you today, come back tomorrow.."
+fi
+}
+
+Search_Record ()
+{
+if [ $# -eq 0  ]
+then
+        read -p "Enter record name: " record_search
+else
+        record_search=$1
+fi
+
+a=$( cat store_file.txt | grep $record_search | cut -d ':' -f 1 | tr '\n' ',' )
+record_name=($a)
+b=$( cat store_file.txt | grep $record_search | cut -d ':' -f 2 | tr '\n' ',' )
+record_amount=($b)
+counter=${#record_name[@]}
+i=0
+if [[ $counter -ne 0 ]]
+then
+        while [[ $i -lt $counter && $# -eq 0 ]]
+        do
+                echo "$i. ${record_name[$1]},${record_amount[$i]}"
+                let i=$i+1
+        done
+                echo "The Found Results are: $counter for $record_search "
+        	Write_to_log  $FUNCNAME $record_name $counter $?
+	else
+                echo "No Results Found For: $record_search"
+		Write_to_log  $FUNCNAME $record_name $counter $?
+fi
+
+}
+
+Write_to_log ()
+{
+STATUS=$4
+REPLEY=$1
+RNAME=$2
+PCS=$3
+TIME=$(date | awk '{print $3 " " $2 " " $6 " " $4 }')
+if [ $STATUS -eq "0" ]
+then
+        echo $TIME $REPLEY "Success" $RNAME $PCS >> storefile_log.txt
+else
+        echo $TIME $REPLEY "Failure" $RNAME $PCS >> storefile_log.txt
+fi
+}
+
+Remove_record ()
+{
+record_name=$1
+file_name=store_file.txt
+sed -i "/$record_name/d" $file_name
+status=$?
+pcs=$(check_record_qauntity $record_name)
+echo $pcs $status $record_name
+Write_to_log  $FUNCNAME $record_name $pcs $status
+}
+
+Add_record ()
+{
+read -p "Enter Record Name: " name
+duplicates=$(check_record_duplicates $name)
+if [[ $duplicates -ge 1 ]]
+then
+	if [[ $duplicates -eq 1 ]]
+	then
+		read -p "Enter Qauntity: " pcs1
+		Update_Qauntity $name $pcs1
+		status=0
+		echo "Updated " $name "Added " $pcs1 " pcs"
+	else
+		#Search_Record
+		echo "Exists in List"
+		status=0
+	fi
+else
+	read -p "No such record, would you like to add a new record?" answer
+	if [[ $answer == "yes" ]]
+	then
+		read -p "Enter Qauntity: " pcs
+		echo $name:$pcs >> store_file.txt 
+		status=$?
+	else
+		echo "ok, goodbye"; exit
+fi
+fi
+status=$?
+Write_to_log $FUNCNAME $name $pcs $status 
+}
+
+check_record_qauntity ()
+{
+q=$( cat store_file.txt | grep $1 | cut -d ':' -f 2 )
+if [ $q -ge 1 ]
+then
+	echo $q
+else
+	echo 0
+fi
+}
+
+Update_Qauntity ()
+{
+record_name=$1
+pcs2=$2
+amount=0
+current_amount=$( check_record_qauntity $record_name )
+let amount=$current_amount+$pcs2
+echo $amount
+if [[ $(Search_Record $record_name) -eq 1  ]]
+then
+	sed -i "s/$record_name:$current_amount/$record_name:$amount/g" store_file.txt
+else
+	Search_Record $record_name
+fi
+}
+
+Menu ()
+{
+echo "Welcome to our Music Store"
+PS3='Hello, Please Select Option: '
+select record in Add Remove Search Update_Name UpdateQuantity Print_Qauntity PrintAllSorted Cancel
+do
+echo $record Choice number is: $REPLY
+case $record in
+	Add)
+	echo "You have chosen Add"
+	Add_record
+	;;
+	Remove)
+	echo "You have chosen to Remove"
+	read -p "Enter record name to delete: " record_name
+	Remove_record $record_name
+	;;
+	Search)
+	echo "You have chosen to Search"
+	read -p "Enter record name to search for: " record_name
+	Search_Record $record_name
+	;;
+	Update_Name)
+	echo "You have chosen to Update Name"
+	;;
+	UpdateQuantity)
+	echo "You have chosen to Update Quantity"
+	read -p "Enter Record Name: " record_name
+	Update_Qauntity $record_name
+	;;
+	Print_Qauntity)
+	echo "You have chosen Print All"
+	Print_amount
+	;;
+	PrintAllSorted)
+	echo "You have chosen Print Sorted list"
+	PrintAllSorted
+	;;
+	Cancel)
+	break
+	;;
+	*)
+	echo "Not a valid option selected, try again or press 8 to exit"
+	;;
+esac
+done
+}
+
+Menu
