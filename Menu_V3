@@ -1,0 +1,202 @@
+#!/bin/bash
+
+file=store_file.txt
+log_file=store_log.txt
+
+search_name ()
+{
+  local PS3 IFS name_list
+  name_list=$(cut "$file" -d ':' -f 1 | grep -i "$1" | tr $'\n' , )
+  IFS=","
+  if [[ -z $name_list ]]; then
+    echo "the record does not exist"
+    return 1
+  fi
+
+  PS3="please choose record name from the list: "
+  select records in $name_list "none of them" exit
+  do
+    case $records in
+      "none of them") return 100 ;;
+      exit) return 111 ;;
+      *) break ;;
+    esac
+  done
+  search_result=$records
+  return  4
+}
+
+#Search Usage search_name rambo || status=$?
+
+Search ()
+{
+echo "Searching for the record, one second.."
+user_input=$1
+if
+	search_name $user_input || status=$?
+	(( status == 100 || status == 111 ))
+then
+	echo "Record doesn't Exists"
+	return
+else
+	echo "Record Name:Record Quantity"
+	awk -F, -v query=$search_result '$1 ~ query { print $1, $2 } ' "$file"
+fi
+Write_to_log $FUNCNAME $search_result $pcs $status
+}
+
+PrintAllSorted ()
+{
+cat store_file.txt | cut -d ':' -f 1,2 | sort -f
+}
+
+Print_amount ()
+{
+a=$( cat store_file.txt | cut -d ':' -f 2 | paste -sd+ | bc )
+if [[ $a -ge 1 ]]
+then
+	echo $a
+else
+	echo "The Database is empty, sorry can't help you today, come back tomorrow.."
+fi
+}
+
+
+Write_to_log ()
+{
+STATUS=$4
+REPLEY=$1
+RNAME=$2
+PCS=$3 || PCS=Null
+TIME=$(date | awk '{print $3 " " $2 " " $6 " " $4 }')
+if [[ $STATUS -ge 1 ]]
+then
+        echo $TIME $REPLEY "Success" $RNAME $PCS >> "$log_file"
+else
+        echo $TIME $REPLEY "Failure" $RNAME $PCS >> "$log_file"
+fi
+}
+
+Remove_record ()
+{
+record_name=$1
+file_name=store_file.txt
+pcs=$(check_record_quantity $record_name)
+if [[ $pcs -ne 0 ]]
+then
+	sed -i "/$record_name/d" $file
+	status=$?
+	echo "Record " $record_name "was removed Successfully from " $file
+fi
+Write_to_log $FUNCNAME $record_name $pcs $status
+}
+
+Add_record ()
+{
+read -p "Enter Record Name: " name
+search_name $name || status=$?
+record_line=$(cat -n "$file" | grep "$search_result" | cut -f1)
+case $status in
+	100|1)
+	echo " Record don't exists - Adding new record to inventory "
+	read -p "Please enter qauntity of the new record: " num_pcs
+	echo $name:$num_pcs >> "$file"
+	;;
+
+	4)
+	read -p "Please enter the amount to add: " num_pcs
+	Update_Qauntity $name:$num_pcs
+	echo "Updated " $name "Added " $num_pcs " pcs"
+	;;
+esac
+
+Write_to_log $FUNCNAME $name $num_pcs $status 
+}
+
+check_record_quantity ()
+{
+#q=$( cat store_file.txt | grep $1 | cut -d ':' -f 2 )
+q=$( awk -F, -v query="$1" '$1 ~ query { print $1 } ' "$file" | cut -d ":" -f 2 )
+echo $q
+if [ $q -ge 1 ]
+then
+	return $q
+else
+	return 0
+fi
+}
+
+Update_Qauntity ()
+{
+record_line=$3
+record_name=$1
+pcs2=$2
+amount=0
+current_amount=$( check_record_quantity $record_name )
+let amount=$current_amount+$pcs2
+sed -i "s/$record_name:$current_amount/$record_name:$amount/g" store_file.txt
+}
+
+
+
+Menu ()
+{
+local record PS3 IFS
+
+choices=(
+"Add"
+"Remove"
+"Search"
+"Update Name"
+"Update Qauntity"
+"Print Qauntity"
+"Print All Sorted"
+"Exit")
+printf -v PS3 "\x1b[32;1m%s\x1b[m: " "Select an action"
+select record in "${choices[@]}"
+do
+case $record in
+	Add)
+	echo "Adding a record, one second.."
+	Add_record
+	;;
+	Remove)
+	read -p "You have chosen to Remove a record, are you sure (y/n)?" answer
+	if [[ $answer == "y" ]]; then
+		read -p "Enter record name to delete: " record_name
+		Remove_record $record_name done
+	fi
+	;;
+	Search)
+	echo "You have chosen to Search"
+	read -p "Enter record Name: " record_name
+	Search $record_name
+	;;
+	"Update Name")
+	echo "You have chosen to Update Name"
+	;;
+	"Update Quantity")
+	echo "You have chosen to Update Quantity"
+	read -p "Enter record Name: " record_name
+	read -p "Enter record to add:" $pcs
+	Update_Qauntity $record_name $pcs
+	;;
+	"Print Qauntity")
+	echo "You have chosen Print All"
+	Print_amount
+	;;
+	"Print All Sorted")
+	echo "You have chosen Print Sorted list"
+	PrintAllSorted
+	;;
+	Exit)
+	break
+	;;
+	*)
+	echo "Not a valid option selected, try again or press 8 to Exit"
+	;;
+esac
+done
+}
+
+Menu
