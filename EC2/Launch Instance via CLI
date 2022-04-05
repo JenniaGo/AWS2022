@@ -14,16 +14,12 @@ SG=$(aws ec2 describe-security-groups --filters Name=group-name,Values=WebSecuri
 echo $SG
 
 
-#2. Script to install web server (UserData.txt)
+#2.UserData.txt
 #!/bin/bash
 yum install -y httpd php
 /usr/bin/systemctl enable httpd
+/usr/bin/systemctl start httpd 2>/tmp/errors.txt (edited) 
 
-#3.0 get parameter
-AZ=us-west-2a
-AMI=ami-0eb324d928acca58a
-SUBNET=subnet-0e315dffc5e5a98ef
-SG=sg-055dca1a02f9ee8c1
 
 #3.1launch instance via CLI
 #! /bin/bash
